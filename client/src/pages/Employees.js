@@ -15,38 +15,54 @@ import {
   Divider,
 } from "@mui/material";
 import { PersonAddAlt1, Delete as DeleteIcon } from "@mui/icons-material";
+import { Toaster, toast } from "react-hot-toast";
 import api from "../api/axios";
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
   const [form, setForm] = useState({ name: "", email: "", position: "" });
 
+  // 🔹 Fetch all employees
   const fetchEmployees = async () => {
     try {
       const res = await api.get("/employees");
       setEmployees(res.data);
     } catch (error) {
       console.error("Error fetching employees:", error);
+      toast.error("Failed to load employees.");
     }
   };
 
+  // 🔹 Add employee
   const handleSubmit = async () => {
-    if (!form.name || !form.email || !form.position) return;
+    if (!form.name.trim() || !form.email.trim() || !form.position.trim()) {
+      toast.error("Please fill all fields.");
+      return;
+    }
+
     try {
       await api.post("/employees", form);
+      toast.success("Employee added successfully!");
       setForm({ name: "", email: "", position: "" });
       fetchEmployees();
     } catch (error) {
       console.error("Error adding employee:", error);
+      toast.error(error.response?.data?.message || "Error adding employee.");
     }
   };
 
+  // 🔹 Delete employee
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this employee?"))
+      return;
+
     try {
       await api.delete(`/employees/${id}`);
+      toast.success("Employee deleted.");
       fetchEmployees();
     } catch (error) {
       console.error("Error deleting employee:", error);
+      toast.error("Failed to delete employee.");
     }
   };
 
@@ -56,6 +72,8 @@ const Employees = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 6, mb: 5 }}>
+      <Toaster position="top-right" reverseOrder={false} />
+
       <Card
         elevation={4}
         sx={{
@@ -83,7 +101,7 @@ const Employees = () => {
 
         <Divider sx={{ mb: 3 }} />
 
-        {/* Form */}
+        {/* Form Section */}
         <Box display="flex" flexWrap="wrap" gap={2} alignItems="center" mb={3}>
           <TextField
             label="Full Name"
@@ -121,6 +139,7 @@ const Employees = () => {
           </Button>
         </Box>
 
+        {/* Employee Table */}
         <Paper
           sx={{
             mt: 2,

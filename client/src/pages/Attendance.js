@@ -23,6 +23,7 @@ import {
   CheckCircleOutline,
   AccessTime,
 } from "@mui/icons-material";
+import { Toaster, toast } from "react-hot-toast";
 import api from "../api/axios";
 
 const Attendance = () => {
@@ -37,28 +38,49 @@ const Attendance = () => {
       setAttendance(res.data);
     } catch (error) {
       console.error("Error fetching attendance:", error);
+      toast.error("Failed to load attendance data.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!form.employee) return;
+    if (!form.employee.trim()) {
+      toast.error("Please enter employee name or ID.");
+      return;
+    }
+
+    const payload = {
+      ...(form.employee.match(/^[0-9a-fA-F]{24}$/)
+        ? { employee: form.employee }
+        : { employeeName: form.employee }),
+      status: form.status,
+      date: new Date(),
+    };
+
     try {
-      await api.post("/attendance", form);
-      setForm({ employee: "", status: "Present" });
-      fetchAttendance();
+      const res = await api.post("/attendance", payload);
+      if (res.status === 201) {
+        toast.success("Attendance marked successfully!");
+        setForm({ employee: "", status: "Present" });
+        fetchAttendance();
+      }
     } catch (error) {
       console.error("Error submitting attendance:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to mark attendance."
+      );
     }
   };
 
   const handleDelete = async (id) => {
     try {
       await api.delete(`/attendance/${id}`);
+      toast.success("Attendance deleted.");
       fetchAttendance();
     } catch (error) {
       console.error("Error deleting attendance:", error);
+      toast.error("Failed to delete attendance.");
     }
   };
 
@@ -68,6 +90,8 @@ const Attendance = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 6, mb: 5 }}>
+      <Toaster position="top-right" />
+
       <Card
         elevation={5}
         sx={{
@@ -131,6 +155,7 @@ const Attendance = () => {
               variant="contained"
               startIcon={<CheckCircleOutline />}
               onClick={handleSubmit}
+              disabled={loading}
               sx={{
                 px: 3,
                 py: 1,
@@ -142,7 +167,7 @@ const Attendance = () => {
                 },
               }}
             >
-              Mark
+              {loading ? "Saving..." : "Mark"}
             </Button>
           </Box>
 

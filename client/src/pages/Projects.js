@@ -15,38 +15,54 @@ import {
   Divider,
 } from "@mui/material";
 import { Work, Delete as DeleteIcon } from "@mui/icons-material";
+import { Toaster, toast } from "react-hot-toast";
 import api from "../api/axios";
 
 const Projects = () => {
   const [projects, setProjects] = useState([]);
   const [form, setForm] = useState({ name: "", description: "" });
 
+  // 🔹 Fetch projects
   const fetchProjects = async () => {
     try {
       const res = await api.get("/projects");
       setProjects(res.data);
     } catch (error) {
       console.error("Error fetching projects:", error);
+      toast.error("Failed to load projects.");
     }
   };
 
+  // 🔹 Add project
   const handleSubmit = async () => {
-    if (!form.name.trim() || !form.description.trim()) return;
+    if (!form.name.trim() || !form.description.trim()) {
+      toast.error("Please fill all fields.");
+      return;
+    }
+
     try {
       await api.post("/projects", form);
+      toast.success("Project added successfully!");
       setForm({ name: "", description: "" });
       fetchProjects();
     } catch (error) {
       console.error("Error adding project:", error);
+      toast.error(error.response?.data?.message || "Error adding project.");
     }
   };
 
+  // 🔹 Delete project
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this project?"))
+      return;
+
     try {
       await api.delete(`/projects/${id}`);
+      toast.success("Project deleted successfully.");
       fetchProjects();
     } catch (error) {
       console.error("Error deleting project:", error);
+      toast.error("Failed to delete project.");
     }
   };
 
@@ -56,6 +72,8 @@ const Projects = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 6, mb: 5 }}>
+      <Toaster position="top-right" reverseOrder={false} />
+
       <Card
         elevation={4}
         sx={{

@@ -23,7 +23,12 @@ app.use("/api/tasks", taskRoutes);
 app.use("/api/attendance", attendanceRoutes);
 
 app.get("/", (req, res) => {
-  res.send("Employee Task Tracker API is running 🚀");
+  res.send("Employee Trakify API is running 🚀");
+});
+
+app.use((req, res, next) => {
+  console.log(req.path, req.method);
+  next();
 });
 
 const PORT = process.env.PORT || 4000;

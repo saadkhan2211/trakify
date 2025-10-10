@@ -4,20 +4,20 @@ import {
   Typography,
   TextField,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Paper,
-  Box,
   Card,
-  Divider,
+  CardContent,
+  Box,
   MenuItem,
   Select,
+  IconButton,
+  Stack,
 } from "@mui/material";
-import { TaskAlt as TaskIcon, Delete as DeleteIcon } from "@mui/icons-material";
+import { Delete as DeleteIcon, AddTask as TaskIcon } from "@mui/icons-material";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import toast from "react-hot-toast";
 import api from "../api/axios";
+
+const STATUSES = ["Pending", "In Progress", "Completed"];
 
 const Tasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -32,27 +32,62 @@ const Tasks = () => {
       const res = await api.get("/tasks");
       setTasks(res.data);
     } catch (error) {
+      toast.error("Failed to fetch tasks");
       console.error("Error fetching tasks:", error);
     }
   };
 
   const handleSubmit = async () => {
-    if (!form.title.trim() || !form.description.trim()) return;
+    if (!form.title.trim()) return toast.error("Task title required");
+
     try {
-      await api.post("/tasks", form);
-      setForm({ title: "", description: "", status: "Pending" });
-      fetchTasks();
+      const res = await api.post("/tasks", form);
+      if (res.status === 201) {
+        toast.success("Task created");
+        setForm({ title: "", description: "", status: "Pending" });
+        fetchTasks();
+      }
     } catch (error) {
-      console.error("Error adding task:", error);
+      toast.error("Failed to add task");
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      await api.delete(`/tasks/${id}`);
-      fetchTasks();
+      const res = await api.delete(`/tasks/${id}`);
+      if (res.status === 200) {
+        toast.success("Task deleted");
+        fetchTasks();
+      }
     } catch (error) {
-      console.error("Error deleting task:", error);
+      toast.error("Failed to delete task");
+    }
+  };
+
+  const handleDragEnd = async (result) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId) return;
+
+    setTasks((prev) =>
+      prev.map((task) =>
+        task._id === draggableId
+          ? { ...task, status: destination.droppableId }
+          : task
+      )
+    );
+
+    try {
+      const res = await api.patch(`/tasks/${draggableId}`, {
+        status: destination.droppableId,
+      });
+
+      if (res.status === 200) toast.success("Task moved");
+    } catch (error) {
+      console.log(error);
+
+      toast.error("Failed to update task");
+      fetchTasks();
     }
   };
 
@@ -61,44 +96,27 @@ const Tasks = () => {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 6, mb: 5 }}>
-      <Card
-        elevation={4}
+    <Container maxWidth="xl" sx={{ mt: 5, mb: 5 }}>
+      <Typography
+        variant="h4"
+        fontWeight={700}
+        gutterBottom
         sx={{
-          borderRadius: 3,
-          background: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
-          p: 3,
+          background: "linear-gradient(90deg, #1e40af, #3b82f6)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
         }}
       >
-        {/* Header */}
-        <Typography
-          variant="h4"
-          fontWeight={600}
-          gutterBottom
-          sx={{
-            background: "linear-gradient(90deg, #1e40af, #3b82f6)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          Task Management
-        </Typography>
+        Task Board
+      </Typography>
 
-        <Typography variant="body2" color="text.secondary" mb={2}>
-          Create, manage, and track tasks across your organization.
-        </Typography>
+      <Typography variant="body2" color="text.secondary" mb={3}>
+        Manage and move tasks easily between stages, just like Trello.
+      </Typography>
 
-        <Divider sx={{ mb: 3 }} />
-
-        {/* Form Section */}
-        <Box
-          display="flex"
-          flexWrap="wrap"
-          gap={2}
-          alignItems="center"
-          mb={3}
-          sx={{ mt: 2 }}
-        >
+      {/* Add Task Form */}
+      <Card sx={{ p: 2, mb: 4, borderRadius: 3 }}>
+        <Box display="flex" flexWrap="wrap" gap={2} alignItems="center">
           <TextField
             label="Title"
             value={form.title}
@@ -109,16 +127,18 @@ const Tasks = () => {
             label="Description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            sx={{ flex: 1, minWidth: 200 }}
+            sx={{ flex: 2, minWidth: 200 }}
           />
           <Select
             value={form.status}
             onChange={(e) => setForm({ ...form, status: e.target.value })}
             sx={{ minWidth: 150 }}
           >
-            <MenuItem value="Pending">Pending</MenuItem>
-            <MenuItem value="In Progress">In Progress</MenuItem>
-            <MenuItem value="Completed">Completed</MenuItem>
+            {STATUSES.map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
+              </MenuItem>
+            ))}
           </Select>
           <Button
             variant="contained"
@@ -134,72 +154,98 @@ const Tasks = () => {
               },
             }}
           >
-            Add
+            Add Task
           </Button>
         </Box>
-
-        {/* Table Section */}
-        <Paper
-          sx={{
-            mt: 2,
-            overflow: "hidden",
-            borderRadius: 3,
-            boxShadow: "0px 2px 10px rgba(0,0,0,0.05)",
-          }}
-        >
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#f1f5f9" }}>
-                <TableCell sx={{ fontWeight: 600 }}>Title</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {tasks.length > 0 ? (
-                tasks.map((t) => (
-                  <TableRow key={t._id} hover>
-                    <TableCell>{t.title}</TableCell>
-                    <TableCell>{t.description}</TableCell>
-                    <TableCell>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 600,
-                          color:
-                            t.status === "Completed"
-                              ? "green"
-                              : t.status === "In Progress"
-                              ? "orange"
-                              : "gray",
-                        }}
-                      >
-                        {t.status}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={() => handleDelete(t._id)}
-                      >
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    No tasks found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Paper>
       </Card>
+
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Stack direction="row" spacing={3} justifyContent="space-between">
+          {STATUSES.map((status) => (
+            <Droppable droppableId={status} key={status}>
+              {(provided) => (
+                <Box
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  sx={{
+                    flex: 1,
+                    backgroundColor: "#f8fafc",
+                    borderRadius: 3,
+                    p: 2,
+                    minHeight: "70vh",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    fontWeight={700}
+                    mb={2}
+                    sx={{
+                      color:
+                        status === "Pending"
+                          ? "#6b7280"
+                          : status === "In Progress"
+                          ? "#f59e0b"
+                          : "#16a34a",
+                    }}
+                  >
+                    {status}
+                  </Typography>
+
+                  {tasks
+                    .filter((t) => t.status === status)
+                    .map((t, index) => (
+                      <Draggable key={t._id} draggableId={t._id} index={index}>
+                        {(provided) => (
+                          <Card
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            sx={{
+                              mb: 2,
+                              p: 2,
+                              borderRadius: 2,
+                              cursor: "grab",
+                              transition: "0.2s",
+                              "&:hover": { boxShadow: "0 4px 12px #00000020" },
+                            }}
+                          >
+                            <CardContent sx={{ p: "8px !important" }}>
+                              <Typography
+                                variant="subtitle1"
+                                fontWeight={600}
+                                gutterBottom
+                              >
+                                {t.title}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                gutterBottom
+                              >
+                                {t.description}
+                              </Typography>
+                              <Box display="flex" justifyContent="flex-end">
+                                <IconButton
+                                  color="error"
+                                  onClick={() => handleDelete(t._id)}
+                                  size="small"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </Draggable>
+                    ))}
+                  {provided.placeholder}
+                </Box>
+              )}
+            </Droppable>
+          ))}
+        </Stack>
+      </DragDropContext>
     </Container>
   );
 };

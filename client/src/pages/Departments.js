@@ -15,38 +15,54 @@ import {
   Divider,
 } from "@mui/material";
 import { Business, Delete as DeleteIcon } from "@mui/icons-material";
+import { Toaster, toast } from "react-hot-toast";
 import api from "../api/axios";
 
 const Departments = () => {
   const [departments, setDepartments] = useState([]);
   const [name, setName] = useState("");
 
+  // 🧩 Fetch Departments
   const fetchDepartments = async () => {
     try {
       const res = await api.get("/departments");
       setDepartments(res.data);
     } catch (error) {
       console.error("Error fetching departments:", error);
+      toast.error("Failed to fetch departments.");
     }
   };
 
+  // ➕ Add Department
   const handleSubmit = async () => {
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      toast.error("Please enter a department name.");
+      return;
+    }
+
     try {
       await api.post("/departments", { name });
+      toast.success("Department added successfully!");
       setName("");
       fetchDepartments();
     } catch (error) {
       console.error("Error adding department:", error);
+      toast.error(error.response?.data?.message || "Error adding department.");
     }
   };
 
+  // ❌ Delete Department
   const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this department?"))
+      return;
+
     try {
       await api.delete(`/departments/${id}`);
+      toast.success("Department deleted.");
       fetchDepartments();
     } catch (error) {
       console.error("Error deleting department:", error);
+      toast.error("Failed to delete department.");
     }
   };
 
@@ -56,6 +72,8 @@ const Departments = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 6, mb: 5 }}>
+      <Toaster position="top-right" reverseOrder={false} />
+
       <Card
         elevation={4}
         sx={{
