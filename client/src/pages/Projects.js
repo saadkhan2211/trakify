@@ -1,68 +1,88 @@
-import React, { useState, useEffect } from "react";
-import {
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Paper,
-  Box,
-  Card,
-  Divider,
-} from "@mui/material";
-import { Work, Delete as DeleteIcon } from "@mui/icons-material";
-import { Toaster, toast } from "react-hot-toast";
+import React, { useEffect, useState } from "react";
+import { FolderPlus, Trash2, FolderKanban, Pencil } from "lucide-react";
+import toast from "react-hot-toast";
 import api from "../api/axios";
+import { EditModal } from "../components/EditModal";
+
+const STATUS_COLORS = [
+  "border-l-violet-500",
+  "border-l-blue-500",
+  "border-l-emerald-500",
+  "border-l-amber-500",
+  "border-l-rose-500",
+  "border-l-cyan-500",
+];
+const EDIT_FIELDS = [
+  {
+    key: "name",
+    label: "Project Name",
+    type: "text",
+    placeholder: "My Project",
+  },
+  {
+    key: "description",
+    label: "Description",
+    type: "textarea",
+    placeholder: "What is this project about?",
+  },
+];
 
 const Projects = () => {
   const [projects, setProjects] = useState([]);
   const [form, setForm] = useState({ name: "", description: "" });
+  const [loading, setLoading] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  // 🔹 Fetch projects
   const fetchProjects = async () => {
     try {
       const res = await api.get("/projects");
       setProjects(res.data);
-    } catch (error) {
-      console.error("Error fetching projects:", error);
+    } catch {
       toast.error("Failed to load projects.");
     }
   };
 
-  // 🔹 Add project
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.description.trim()) {
       toast.error("Please fill all fields.");
       return;
     }
-
+    setLoading(true);
     try {
       await api.post("/projects", form);
-      toast.success("Project added successfully!");
+      toast.success("Project created.");
       setForm({ name: "", description: "" });
       fetchProjects();
-    } catch (error) {
-      console.error("Error adding project:", error);
-      toast.error(error.response?.data?.message || "Error adding project.");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Error adding project.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 🔹 Delete project
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this project?"))
-      return;
-
+    if (!window.confirm("Delete this project?")) return;
     try {
       await api.delete(`/projects/${id}`);
-      toast.success("Project deleted successfully.");
+      toast.success("Project deleted.");
       fetchProjects();
-    } catch (error) {
-      console.error("Error deleting project:", error);
+    } catch {
       toast.error("Failed to delete project.");
+    }
+  };
+
+  const handleEdit = async (updated) => {
+    setSaving(true);
+    try {
+      await api.put(`/projects/${editTarget._id}`, updated);
+      toast.success("Project updated.");
+      setEditTarget(null);
+      fetchProjects();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -71,115 +91,112 @@ const Projects = () => {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 6, mb: 5 }}>
-      <Toaster position="top-right" reverseOrder={false} />
+    <main className="mx-auto max-w-screen-xl px-6 py-10 animate-fade-in">
+      <EditModal
+        open={editTarget !== null}
+        title="Edit Project"
+        fields={EDIT_FIELDS}
+        values={editTarget || {}}
+        onClose={() => setEditTarget(null)}
+        onSave={handleEdit}
+        loading={saving}
+      />
 
-      <Card
-        elevation={4}
-        sx={{
-          borderRadius: 3,
-          background: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
-          p: 3,
-        }}
-      >
-        {/* Header */}
-        <Typography
-          variant="h4"
-          fontWeight={600}
-          gutterBottom
-          sx={{
-            background: "linear-gradient(90deg, #1e3a8a, #3b82f6)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          Project Management
-        </Typography>
+      <div className="page-header flex items-start justify-between">
+        <div>
+          <p className="section-label mb-1.5">Workspace</p>
+          <h1 className="page-title">Projects</h1>
+          <p className="page-subtitle">
+            Track active projects across your organization.
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-center">
+          <p className="text-xl font-semibold text-zinc-100">
+            {projects.length}
+          </p>
+          <p className="text-xs text-zinc-500">projects</p>
+        </div>
+      </div>
 
-        <Typography variant="body2" color="text.secondary" mb={2}>
-          Add, manage, and remove projects for your organization.
-        </Typography>
-
-        <Divider sx={{ mb: 3 }} />
-
-        {/* Form Section */}
-        <Box display="flex" flexWrap="wrap" gap={2} alignItems="center" mb={3}>
-          <TextField
-            label="Project Name"
+      <div className="card mb-10 p-5">
+        <p className="mb-4 text-xs font-medium uppercase tracking-widest text-zinc-600">
+          New Project
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <input
+            className="input flex-1 min-w-[180px]"
+            placeholder="Project name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            sx={{ flex: 1, minWidth: 200 }}
           />
-          <TextField
-            label="Description"
+          <input
+            className="input flex-[2] min-w-[220px]"
+            placeholder="Short description"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            sx={{ flex: 1, minWidth: 200 }}
           />
-          <Button
-            variant="contained"
-            startIcon={<Work />}
+          <button
+            className="btn-primary shrink-0"
             onClick={handleSubmit}
-            sx={{
-              px: 3,
-              py: 1,
-              fontWeight: 600,
-              background: "linear-gradient(90deg, #1e3a8a, #3b82f6)",
-              "&:hover": {
-                background: "linear-gradient(90deg, #1e40af, #2563eb)",
-              },
-            }}
+            disabled={loading}
           >
-            Add
-          </Button>
-        </Box>
+            <FolderPlus size={15} />
+            {loading ? "Creating…" : "Create Project"}
+          </button>
+        </div>
+      </div>
 
-        {/* Table Section */}
-        <Paper
-          sx={{
-            mt: 2,
-            overflow: "hidden",
-            borderRadius: 3,
-            boxShadow: "0px 2px 10px rgba(0,0,0,0.05)",
-          }}
-        >
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#f1f5f9" }}>
-                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {projects.length > 0 ? (
-                projects.map((p) => (
-                  <TableRow key={p._id} hover>
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell>{p.description}</TableCell>
-                    <TableCell>
-                      <Button
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={() => handleDelete(p._id)}
-                      >
-                        Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} align="center">
-                    No projects found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Paper>
-      </Card>
-    </Container>
+      {projects.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map((p, i) => (
+            <div
+              key={p._id}
+              className={`card border-l-4 ${STATUS_COLORS[i % STATUS_COLORS.length]} p-5 group hover:border-zinc-700 transition-all duration-150 animate-slide-up`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800">
+                  <FolderKanban size={18} className="text-zinc-400" />
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    className="btn-ghost text-xs py-1 px-2"
+                    onClick={() => setEditTarget(p)}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    className="btn-danger py-1 px-2 text-xs"
+                    onClick={() => handleDelete(p._id)}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+              <h3 className="font-semibold text-zinc-100 mb-1 leading-snug">
+                {p.name}
+              </h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">
+                {p.description}
+              </p>
+              <div className="mt-4 h-1 w-full rounded-full bg-zinc-800">
+                <div
+                  className="h-1 rounded-full bg-accent/60"
+                  style={{ width: `${30 + ((i * 17) % 60)}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-right text-[10px] text-zinc-600">
+                {30 + ((i * 17) % 60)}% complete
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 py-20 text-center">
+          <FolderKanban size={32} className="mb-3 text-zinc-700" />
+          <p className="text-sm text-zinc-600">No projects yet.</p>
+        </div>
+      )}
+    </main>
   );
 };
 

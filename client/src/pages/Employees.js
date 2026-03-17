@@ -1,68 +1,100 @@
 import React, { useEffect, useState } from "react";
-import {
-  Container,
-  Typography,
-  TextField,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Paper,
-  Box,
-  Card,
-  Divider,
-} from "@mui/material";
-import { PersonAddAlt1, Delete as DeleteIcon } from "@mui/icons-material";
-import { Toaster, toast } from "react-hot-toast";
+import { UserPlus, Trash2, Users, Pencil } from "lucide-react";
+import toast from "react-hot-toast";
 import api from "../api/axios";
+import { EditModal } from "../components/EditModal";
+
+const avatarColor = (name) => {
+  const colors = [
+    "bg-violet-500/20 text-violet-400",
+    "bg-blue-500/20 text-blue-400",
+    "bg-emerald-500/20 text-emerald-400",
+    "bg-amber-500/20 text-amber-400",
+    "bg-rose-500/20 text-rose-400",
+    "bg-cyan-500/20 text-cyan-400",
+  ];
+  return colors[(name?.charCodeAt(0) || 0) % colors.length];
+};
+const initials = (name) =>
+  name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
+
+const EDIT_FIELDS = [
+  { key: "name", label: "Full Name", type: "text", placeholder: "Jane Doe" },
+  {
+    key: "email",
+    label: "Email Address",
+    type: "email",
+    placeholder: "jane@company.com",
+  },
+  {
+    key: "position",
+    label: "Position / Role",
+    type: "text",
+    placeholder: "Senior Engineer",
+  },
+];
 
 const Employees = () => {
   const [employees, setEmployees] = useState([]);
   const [form, setForm] = useState({ name: "", email: "", position: "" });
+  const [loading, setLoading] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  // 🔹 Fetch all employees
   const fetchEmployees = async () => {
     try {
       const res = await api.get("/employees");
       setEmployees(res.data);
-    } catch (error) {
-      console.error("Error fetching employees:", error);
+    } catch {
       toast.error("Failed to load employees.");
     }
   };
 
-  // 🔹 Add employee
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.position.trim()) {
       toast.error("Please fill all fields.");
       return;
     }
-
+    setLoading(true);
     try {
       await api.post("/employees", form);
-      toast.success("Employee added successfully!");
+      toast.success("Employee added.");
       setForm({ name: "", email: "", position: "" });
       fetchEmployees();
-    } catch (error) {
-      console.error("Error adding employee:", error);
-      toast.error(error.response?.data?.message || "Error adding employee.");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Error adding employee.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // 🔹 Delete employee
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this employee?"))
-      return;
-
+    if (!window.confirm("Delete this employee?")) return;
     try {
       await api.delete(`/employees/${id}`);
-      toast.success("Employee deleted.");
+      toast.success("Employee removed.");
       fetchEmployees();
-    } catch (error) {
-      console.error("Error deleting employee:", error);
+    } catch {
       toast.error("Failed to delete employee.");
+    }
+  };
+
+  const handleEdit = async (updated) => {
+    setSaving(true);
+    try {
+      await api.put(`/employees/${editTarget._id}`, updated);
+      toast.success("Employee updated.");
+      setEditTarget(null);
+      fetchEmployees();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -71,122 +103,134 @@ const Employees = () => {
   }, []);
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 6, mb: 5 }}>
-      <Toaster position="top-right" reverseOrder={false} />
+    <main className="mx-auto max-w-screen-xl px-6 py-10 animate-fade-in">
+      <EditModal
+        open={editTarget !== null}
+        title="Edit Employee"
+        fields={EDIT_FIELDS}
+        values={editTarget || {}}
+        onClose={() => setEditTarget(null)}
+        onSave={handleEdit}
+        loading={saving}
+      />
 
-      <Card
-        elevation={4}
-        sx={{
-          borderRadius: 3,
-          background: "linear-gradient(135deg, #f8fafc, #f1f5f9)",
-          p: 3,
-        }}
-      >
-        <Typography
-          variant="h4"
-          fontWeight={600}
-          gutterBottom
-          sx={{
-            background: "linear-gradient(90deg, #2563eb, #60a5fa)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          Employee Management
-        </Typography>
+      <div className="page-header flex items-start justify-between">
+        <div>
+          <p className="section-label mb-1.5">People</p>
+          <h1 className="page-title">Employees</h1>
+          <p className="page-subtitle">
+            Manage your organization's team members.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+          <Users size={16} className="text-zinc-500" />
+          <span className="text-sm font-semibold text-zinc-100">
+            {employees.length}
+          </span>
+          <span className="text-xs text-zinc-500">total</span>
+        </div>
+      </div>
 
-        <Typography variant="body2" color="text.secondary" mb={2}>
-          Add, view, and manage all employees in your organization.
-        </Typography>
-
-        <Divider sx={{ mb: 3 }} />
-
-        {/* Form Section */}
-        <Box display="flex" flexWrap="wrap" gap={2} alignItems="center" mb={3}>
-          <TextField
-            label="Full Name"
+      <div className="card mb-8 p-5">
+        <p className="mb-4 text-xs font-medium uppercase tracking-widest text-zinc-600">
+          Add New Employee
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <input
+            className="input flex-1 min-w-[180px]"
+            placeholder="Full name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            sx={{ flex: 1, minWidth: 200 }}
           />
-          <TextField
-            label="Email"
+          <input
+            className="input flex-1 min-w-[180px]"
+            placeholder="Email address"
+            type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            sx={{ flex: 1, minWidth: 200 }}
           />
-          <TextField
-            label="Position"
+          <input
+            className="input flex-1 min-w-[180px]"
+            placeholder="Position / Role"
             value={form.position}
             onChange={(e) => setForm({ ...form, position: e.target.value })}
-            sx={{ flex: 1, minWidth: 200 }}
           />
-          <Button
-            variant="contained"
-            startIcon={<PersonAddAlt1 />}
+          <button
+            className="btn-primary shrink-0"
             onClick={handleSubmit}
-            sx={{
-              px: 3,
-              py: 1,
-              fontWeight: 600,
-              background: "linear-gradient(90deg, #2563eb, #60a5fa)",
-              "&:hover": {
-                background: "linear-gradient(90deg, #1d4ed8, #3b82f6)",
-              },
-            }}
+            disabled={loading}
           >
-            Add
-          </Button>
-        </Box>
+            <UserPlus size={15} />
+            {loading ? "Adding..." : "Add Employee"}
+          </button>
+        </div>
+      </div>
 
-        {/* Employee Table */}
-        <Paper
-          sx={{
-            mt: 2,
-            overflow: "hidden",
-            borderRadius: 3,
-            boxShadow: "0px 2px 10px rgba(0,0,0,0.05)",
-          }}
-        >
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#f1f5f9" }}>
-                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Position</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {employees.length > 0 ? (
-                employees.map((emp) => (
-                  <TableRow key={emp._id} hover>
-                    <TableCell>{emp.name}</TableCell>
-                    <TableCell>{emp.email}</TableCell>
-                    <TableCell>{emp.position}</TableCell>
-                    <TableCell>
-                      <Button
-                        color="error"
-                        startIcon={<DeleteIcon />}
+      <div className="table-wrapper">
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Email</th>
+              <th>Position</th>
+              <th className="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {employees.length > 0 ? (
+              employees.map((emp) => (
+                <tr key={emp._id} className="animate-slide-up">
+                  <td>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-semibold ${avatarColor(emp.name)}`}
+                      >
+                        {initials(emp.name)}
+                      </div>
+                      <span className="font-medium text-zinc-200">
+                        {emp.name}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="text-zinc-400 font-mono text-xs">
+                    {emp.email}
+                  </td>
+                  <td>
+                    <span className="inline-flex rounded-md bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
+                      {emp.position}
+                    </span>
+                  </td>
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        className="btn-ghost text-xs py-1.5 px-2.5"
+                        onClick={() => setEditTarget(emp)}
+                      >
+                        <Pencil size={13} />
+                        Edit
+                      </button>
+                      <button
+                        className="btn-danger"
                         onClick={() => handleDelete(emp._id)}
                       >
+                        <Trash2 size={13} />
                         Delete
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    No employees found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Paper>
-      </Card>
-    </Container>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4} className="py-16 text-center text-zinc-600">
+                  No employees yet — add one above.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </main>
   );
 };
 

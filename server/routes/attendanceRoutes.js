@@ -2,15 +2,12 @@ import express from "express";
 import {
   getAttendance,
   createAttendance,
-  updateAttendance,
   deleteAttendance,
 } from "../controllers/attendanceController.js";
+import { protect, adminOnly } from "../middleware/auth.js";
 
 const router = express.Router();
-
-router.get("/", getAttendance);
-router.post("/", createAttendance);
-router.put("/:id", updateAttendance);
-router.delete("/:id", deleteAttendance);
-
+router.get("/", protect, getAttendance);
+router.post("/", protect, adminOnly, createAttendance);
+router.delete("/:id", protect, adminOnly, deleteAttendance);
 export default router;

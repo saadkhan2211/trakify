@@ -5,12 +5,11 @@ import {
   updateDepartment,
   deleteDepartment,
 } from "../controllers/departmentController.js";
+import { protect, adminOnly } from "../middleware/auth.js";
 
 const router = express.Router();
-
-router.get("/", getDepartments);
-router.post("/", createDepartment);
-router.put("/:id", updateDepartment);
-router.delete("/:id", deleteDepartment);
-
+router.get("/", protect, getDepartments);
+router.post("/", protect, adminOnly, createDepartment);
+router.put("/:id", protect, adminOnly, updateDepartment);
+router.delete("/:id", protect, adminOnly, deleteDepartment);
 export default router;
